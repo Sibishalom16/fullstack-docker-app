@@ -1,41 +1,37 @@
-version: "3.9"
-services:
-  db:
-    image: postgres:13
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-    volumes:
-      - db-data:/var/lib/postgresql/data
+version: "3.8"
 
+services:
   backend:
-    build: ./backend
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      - DB_HOST=db
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_PORT=${DB_PORT}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
     ports:
       - "5000:5000"
-    depends_on:
-      - db
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - app-network
 
   frontend:
-    build: ./frontend
-    restart: unless-stopped
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
     environment:
       - CHOKIDAR_USEPOLLING=true
       - HOST=0.0.0.0
-    ports:
-      - "3000:3000"
+    volumes:
+      - ./frontend:/usr/src/app
+      - /usr/src/app/node_modules
     depends_on:
       - backend
+    networks:
+      - app-network
 
-volumes:
-  db-data:
+networks:
+  app-network:
+    driver: bridge
