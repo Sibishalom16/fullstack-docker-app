@@ -20,6 +20,22 @@ services:
       - DB_PORT=5432
     networks:
       - app-network
+    command: sh -c "until nc -z db 5432; do echo 'Waiting for Postgres...'; sleep 2; done && npm start"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - app-network
 
   db:
     image: postgres:14
