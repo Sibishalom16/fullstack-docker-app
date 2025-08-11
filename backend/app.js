@@ -11,20 +11,47 @@ const dbClient = new Client({
   port: process.env.DB_PORT || 5432,
 });
 
-dbClient.connect()
-  .then(() => console.log('Connected to Postgres'))
-  .catch((err) => console.error('Failed to connect to Postgres', err));
+async function initDb() {
+  await dbClient.connect();
+  console.log('Connected to Postgres');
+
+  // Create table if not exists
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      text TEXT NOT NULL
+    );
+  `);
+
+  // Check if table has any data
+  const res = await dbClient.query('SELECT COUNT(*) FROM messages;');
+  if (parseInt(res.rows[0].count, 10) === 0) {
+    await dbClient.query('INSERT INTO messages (text) VALUES ($1)', [
+      'Hello from Postgres (persistent data)!',
+    ]);
+    console.log('Inserted initial message into DB');
+  } else {
+    console.log('DB already has data, skipping insert');
+  }
+}
 
 app.get('/api', async (req, res) => {
   try {
-    const result = await dbClient.query('SELECT NOW() AS time');
-    res.send(`Hello from Express + Postgres! Server time: ${result.rows[0].time}`);
+    const result = await dbClient.query(
+      'SELECT text FROM messages ORDER BY id LIMIT 1;'
+    );
+    res.send(result.rows[0].text);
   } catch (err) {
     console.error('DB query error:', err);
     res.status(500).send('Database error');
   }
 });
 
-app.listen(port, () => {
-  console.log(`Backend listening at http://localhost:${port}`);
+app.listen(port, async () => {
+  try {
+    await initDb();
+    console.log(`Backend listening at http://localhost:${port}`);
+  } catch (err) {
+    console.error('Failed to initialize DB:', err);
+  }
 });
